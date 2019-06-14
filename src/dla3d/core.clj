@@ -1,12 +1,8 @@
 (ns dla3d.core
   (:require
-    [thi.ng.geom.core :as g]
-    [thi.ng.geom.vector :refer [vec3]]
+    [quil.core :as q]
+    [quil.middleware :as m]
     [kdtree :as kd]
-    [thi.ng.geom.voxel.svo :as svo]
-    [thi.ng.geom.voxel.isosurface :as iso]
-    [thi.ng.geom.mesh.io :as mio]
-    [clojure.java.io :as io]
     ))
 
 (defn new-rand-point [xyz-range]
@@ -14,10 +10,9 @@
    (- (rand (* 2 xyz-range)) xyz-range)
    (- (rand (* 2 xyz-range)) xyz-range)])
 
-;;;;;;;;;; KD-TREE Particle Approach ;;;;;;;;;;;;;;
 (defn stick-particle [tree]
-  (let [sz 25
-        radius 1.0
+  (let [sz 250
+        radius 5.0
         touch-dist-sq (* 2 radius 2 radius)] 
     (loop [p (new-rand-point sz)]
       (let [near (kd/nearest-neighbor tree p 2)]
@@ -46,14 +41,26 @@
             (range nparts))))
 
 
-(def res 0.25)
-(defn voxelize-points [points]
-  (let [scale (apply max (mapcat vec points))]
-    (svo/apply-voxels svo/set-at (svo/voxeltree 32 res) points)))
+;;;;;;;;;;;;;;; QUIL ;;;;;;;;;;;;;;;
 
-(def iso-val 0.5)
-(defn main [points]
-  (with-open [o (io/output-stream "dla.stl")]
-   (mio/write-stl
-    (mio/wrapped-output-stream o)
-    (g/tessellate (iso/surface-mesh (voxelize-points points) 10 iso-val)))))
+(def points (aggregate 1000))
+(defn draw [state]
+  (q/background 50)
+  ;(q/ambient-light 128 128 128)
+  ;(q/point-light 200 50 50 -150 150 0)
+  ;;(q/camera -200 0 0  0 0 0  0 1 0)
+  (q/lights)
+  (q/fill 150 100 150)
+  (q/no-stroke)
+  (q/with-translation [250 250 0]
+  (doseq [p points]
+    (q/with-translation p
+      (q/sphere 5.))))
+  ;(when (< (:frame state) 60)
+  ;  (q/save-frame "dla-pull-####.png")
+  )
+(q/defsketch dla3d
+  :draw draw
+  :size [500 500]
+  :renderer :p3d
+  :middleware [m/fun-mode m/navigation-3d])
