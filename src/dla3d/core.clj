@@ -3,6 +3,9 @@
     [quil.core :as q]
     [quil.middleware :as m]
     [kdtree :as kd]
+    [scad-clj.scad :as sc]
+    [scad-clj.model :as s]
+    [scad-clj.geometry :as g]
     ))
 
 (defn new-rand-point [xyz-range]
@@ -42,41 +45,49 @@
             (range nparts))))
 
 
+;;;;;;;;;;;;;;; OPENSCAD ;;;;;;;;;;;;;;;
+
+(defn to-scad-model [filename points]
+  (spit filename 
+        (sc/write-scad
+          (apply s/union (concat (map #(g/line (:p %) (:hit %)) points)
+                                 (map #(s/translate (:p %) (s/sphere 1)) points))))))
+
 ;;;;;;;;;;;;;;; QUIL ;;;;;;;;;;;;;;;
 
-(defn update-state [state]
-  (if (:points state)
-    state
-    (assoc state
-           :points (aggregate 1000)
-           ;position [-20 0 0]
-           )))
-
-(defn draw [state]
-  (q/background 0)
-  (q/ambient-light 80 80 80)
-  (q/point-light 200 50 50 -150 150 0)
-  ;(q/camera -20 0 0  0 0 0  0 1 0)
-  ;(q/lights)
-  (q/with-translation [250 250 0]
-    (doseq [p (:points state)]
-      (q/stroke 200 150 200)
-      (q/stroke-weight 1)
-      ;(print (concat (:p p) (:hit p)))
-      (q/line (:p p) (:hit p))
-      ;(apply q/line (concat (:p p) (:hit p)))
-;      (q/fill 150 100 150)
-;      (q/no-stroke)
-;      (q/with-translation (:p p)
-;        (q/sphere 0.1))
-        ))
-  ;(when (< (:frame state) 60)
-  ;  (q/save-frame "dla-pull-####.png")
-  )
-
-(q/defsketch dla3d
-  :draw draw
-  :update update-state
-  :size [500 500]
-  :renderer :p3d
-  :middleware [m/fun-mode m/navigation-3d])
+;(defn update-state [state]
+;  (if (:points state)
+;    state
+;    (assoc state
+;           :points (aggregate 1000)
+;           ;position [-20 0 0]
+;           )))
+;
+;(defn draw [state]
+;  (q/background 0)
+;  (q/ambient-light 80 80 80)
+;  (q/point-light 200 50 50 -150 150 0)
+;  ;(q/camera -20 0 0  0 0 0  0 1 0)
+;  ;(q/lights)
+;  (q/with-translation [250 250 0]
+;    (doseq [p (:points state)]
+;      (q/stroke 200 150 200)
+;      (q/stroke-weight 1)
+;      ;(print (concat (:p p) (:hit p)))
+;      (q/line (:p p) (:hit p))
+;      ;(apply q/line (concat (:p p) (:hit p)))
+;;      (q/fill 150 100 150)
+;;      (q/no-stroke)
+;;      (q/with-translation (:p p)
+;;        (q/sphere 0.1))
+;        ))
+;  ;(when (< (:frame state) 60)
+;  ;  (q/save-frame "dla-pull-####.png")
+;  )
+;
+;(q/defsketch dla3d
+;  :draw draw
+;  :update update-state
+;  :size [500 500]
+;  :renderer :p3d
+;  :middleware [m/fun-mode m/navigation-3d])
