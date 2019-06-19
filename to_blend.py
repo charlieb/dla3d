@@ -32,6 +32,6 @@ def cyls(filename):
         cylinder_between(x1, y1, z1,
                          x2, y2, z2, radius)
 
-cyls("/home/charlieb/src/dla3d/test.points")
+#cyls("/home/charlieb/src/dla3d/test.points")
 
 
