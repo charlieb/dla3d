@@ -1,5 +1,6 @@
 (ns dla3d.core
   (:require
+    [clojure.string :refer [join]]
     [quil.core :as q]
     [quil.middleware :as m]
     [kdtree :as kd]
@@ -15,7 +16,7 @@
 
 (defn stick-particle [tree]
   (let [sz 50
-        radius 1.0
+        radius 1.
         touch-dist-sq (* 2 radius 2 radius)] 
     (loop [p (new-rand-point sz)]
       (let [near (kd/nearest-neighbor tree p 2)]
@@ -45,6 +46,19 @@
             (range nparts))))
 
 
+;;;;;;;;;;;; BLENDER PYTHON ;;;;;;;;;;;;
+(defn vec-to-python-string [v] (join ["[" (join "," v) "]"]))
+(defn to-python [filename points]
+  (spit filename
+    (str "["
+         (join ","
+               (map (fn [p] (str "["
+                                 (vec-to-python-string (:p p))
+                                 ","
+                                 (vec-to-python-string (:hit p)) 
+                                 "]"))
+                    points))
+         "]")))
 ;;;;;;;;;;;;;;; OPENSCAD ;;;;;;;;;;;;;;;
 
 (defn to-scad-model [filename points]
