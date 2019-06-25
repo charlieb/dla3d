@@ -1,12 +1,7 @@
 (ns dla3d.core
   (:require
     [clojure.string :refer [join]]
-    [quil.core :as q]
-    [quil.middleware :as m]
     [kdtree :as kd]
-    [scad-clj.scad :as sc]
-    [scad-clj.model :as s]
-    [scad-clj.geometry :as g]
     ))
 
 (defn new-rand-point [xyz-range]
@@ -14,36 +9,64 @@
    (- (rand (* 2 xyz-range)) xyz-range)
    (- (rand (* 2 xyz-range)) xyz-range)])
 
-(defn stick-particle [tree]
-  (let [sz 50
-        radius 1.
-        touch-dist-sq (* 2 radius 2 radius)] 
-    (loop [p (new-rand-point sz)]
-      (let [near (kd/nearest-neighbor tree p 2)]
-        (cond
-          (and (= 2 (count near))
-               (< (:dist-squared (first near)) touch-dist-sq)
-               (< (:dist-squared (second near)) touch-dist-sq))
-          (recur (new-rand-point sz))
+(defn stick-particle [tree size rad-fn]
+  (loop [p (new-rand-point size)]
+    (let [near (kd/nearest-neighbor tree p 2)]
+      (cond
+        (and (= 2 (count near))
+             (< (:dist-squared (first near)) 
+                (+ (Math/pow (rad-fn p) 2)
+                   (Math/pow (rad-fn (:point (first near))) 2)))
+             (< (:dist-squared (second near))
+                (+ (Math/pow (rad-fn p) 2)
+                   (Math/pow (rad-fn (:point (second near))) 2))))
+        (recur (new-rand-point size))
 
-          (< (:dist-squared (first near)) touch-dist-sq)
-          ;(vec p)
-          {:p (vec p) :hit (:point (first near))}
+        (< (:dist-squared (first near)) 
+           (+ (Math/pow (rad-fn p) 2)
+              (Math/pow (rad-fn (:point (first near))) 2)))
+        ;(vec p)
+        {:p (vec p) :hit (:point (first near))}
 
-          (> (:dist-squared (first near)) (* 5 touch-dist-sq))
-          (recur (new-rand-point sz))
+        (> (:dist-squared (first near)) 
+           (* 5 (+ (Math/pow (rad-fn p) 2)
+                   (Math/pow (rad-fn (:point (first near))) 2))))
+        (recur (new-rand-point size))
 
-          :otherwise
-          (recur (map + p (new-rand-point (* radius 0.75 )))))))))
+        :otherwise
+        (recur (map + p (new-rand-point 1.)))))))
+
+(defn- sphere-shell [p] 
+  (if (< (Math/abs (- 100 (apply + (map * p p)))) 25)
+    5.
+    1.))
+(defn- max-dist [p maxd]
+  (let [margin 10
+        margin-sq 100]
+    (if (> (+ margin-sq (apply + (map * p p)))
+           (* maxd maxd))
+      (+ margin (Math/sqrt (apply + (map * p p))))
+      maxd)))
+
 
 (defn aggregate [nparts]
-  (second
-    (reduce (fn [[tree ps] i] 
-              (let [p (stick-particle tree)]
-                (println i p)
-                [(kd/insert tree (:p p)) (conj ps p)]))
-            [(kd/build-tree [[0 0 0]]) [{:p [0 0 0] :hit [0 0 0]}]]
-            (range nparts))))
+  (let [rad-fn (constantly 1.)
+        max-rand-point-fn 
+        max-dist
+        ;(constantly 50.)
+        ]
+    (loop [tree (kd/build-tree [[0 0 0]]) 
+           points [{:p [0 0 0] :hit [0 0 0]}]
+           maxd 10
+           i nparts]
+      (if (zero? i)
+        points
+        (let [p (stick-particle tree maxd rad-fn)]
+          (println i maxd p)
+          (recur (kd/insert tree (:p p))
+                 (conj points p)
+                 (max-rand-point-fn (:p p) maxd)
+                 (dec i)))))))
 
 
 ;;;;;;;;;;;; BLENDER PYTHON ;;;;;;;;;;;;
@@ -59,49 +82,3 @@
                                  "]"))
                     points))
          "]")))
-;;;;;;;;;;;;;;; OPENSCAD ;;;;;;;;;;;;;;;
-
-(defn to-scad-model [filename points]
-  (spit filename 
-        (sc/write-scad
-          (apply s/union (concat (map #(g/line (:p %) (:hit %)) points)
-                                 (map #(s/translate (:p %) (s/sphere 1)) points))))))
-
-;;;;;;;;;;;;;;; QUIL ;;;;;;;;;;;;;;;
-
-;(defn update-state [state]
-;  (if (:points state)
-;    state
-;    (assoc state
-;           :points (aggregate 1000)
-;           ;position [-20 0 0]
-;           )))
-;
-;(defn draw [state]
-;  (q/background 0)
-;  (q/ambient-light 80 80 80)
-;  (q/point-light 200 50 50 -150 150 0)
-;  ;(q/camera -20 0 0  0 0 0  0 1 0)
-;  ;(q/lights)
-;  (q/with-translation [250 250 0]
-;    (doseq [p (:points state)]
-;      (q/stroke 200 150 200)
-;      (q/stroke-weight 1)
-;      ;(print (concat (:p p) (:hit p)))
-;      (q/line (:p p) (:hit p))
-;      ;(apply q/line (concat (:p p) (:hit p)))
-;;      (q/fill 150 100 150)
-;;      (q/no-stroke)
-;;      (q/with-translation (:p p)
-;;        (q/sphere 0.1))
-;        ))
-;  ;(when (< (:frame state) 60)
-;  ;  (q/save-frame "dla-pull-####.png")
-;  )
-;
-;(q/defsketch dla3d
-;  :draw draw
-;  :update update-state
-;  :size [500 500]
-;  :renderer :p3d
-;  :middleware [m/fun-mode m/navigation-3d])
