@@ -34,12 +34,13 @@
         (recur (new-rand-point size))
 
         :otherwise
-        (recur (map + p (new-rand-point 1.)))))))
+        (recur (map + p (new-rand-point 0.5)))))))
 
 (defn- sphere-shell [p] 
-  (if (< (Math/abs (- 100 (apply + (map * p p)))) 25)
-    5.
+  (if (< (Math/abs (- 50 (apply + (map * p p)))) 10)
+    0.1
     1.))
+
 (defn- max-dist [p maxd]
   (let [margin 10
         margin-sq 100]
@@ -50,13 +51,11 @@
 
 
 (defn aggregate [nparts]
-  (let [rad-fn (constantly 1.)
-        max-rand-point-fn 
-        max-dist
-        ;(constantly 50.)
+  (let [rad-fn sphere-shell ;(constantly 1.)
+        max-rand-point-fn max-dist
         ]
     (loop [tree (kd/build-tree [[0 0 0]]) 
-           points [{:p [0 0 0] :hit [0 0 0]}]
+           points []
            maxd 10
            i nparts]
       (if (zero? i)
