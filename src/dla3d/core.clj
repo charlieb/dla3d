@@ -9,7 +9,7 @@
    (- (rand (* 2 xyz-range)) xyz-range)
    (- (rand (* 2 xyz-range)) xyz-range)])
 
-(defn stick-particle [tree size rad-fn]
+(defn stick-particle [tree size rad-fn allow-fn]
   (loop [p (new-rand-point size)]
     (let [near (kd/nearest-neighbor tree p 2)]
       (cond
@@ -22,9 +22,11 @@
                    (Math/pow (rad-fn (:point (second near))) 2))))
         (recur (new-rand-point size))
 
-        (< (:dist-squared (first near)) 
-           (+ (Math/pow (rad-fn p) 2)
-              (Math/pow (rad-fn (:point (first near))) 2)))
+        (and
+          (< (:dist-squared (first near)) 
+             (+ (Math/pow (rad-fn p) 2)
+                (Math/pow (rad-fn (:point (first near))) 2)))
+          (allow-fn p))
         ;(vec p)
         {:p (vec p) :hit (:point (first near))}
 
@@ -36,10 +38,11 @@
         :otherwise
         (recur (map + p (new-rand-point 0.5)))))))
 
+(defn- in-sphere-shell? [p] 
+  (< (Math/abs (- 100 (apply + (map * p p)))) 10))
+
 (defn- sphere-shell [p] 
-  (if (< (Math/abs (- 50 (apply + (map * p p)))) 10)
-    0.1
-    1.))
+  (if (in-sphere-shell? p) 0.1 1.))
 
 (defn- max-dist [p maxd]
   (let [margin 10
@@ -51,16 +54,19 @@
 
 
 (defn aggregate [nparts]
-  (let [rad-fn sphere-shell ;(constantly 1.)
-        max-rand-point-fn max-dist
+  (let [max-rand-point-fn max-dist
+        rad-fn (constantly 0.5) ;sphere-shell ;
+        allow-point in-sphere-shell? ;(constantly true)
+        initial-points [[10 0 0] [0 10 0] [0 0 10]
+                        [-10 0 0] [0 -10 0] [0 0 -10]] ; [[0 0 0]
         ]
-    (loop [tree (kd/build-tree [[0 0 0]]) 
+    (loop [tree (kd/build-tree initial-points) 
            points []
-           maxd 10
+           maxd 20
            i nparts]
       (if (zero? i)
         points
-        (let [p (stick-particle tree maxd rad-fn)]
+        (let [p (stick-particle tree maxd rad-fn allow-point)]
           (println i maxd p)
           (recur (kd/insert tree (:p p))
                  (conj points p)
